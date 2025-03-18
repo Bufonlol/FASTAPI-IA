@@ -1,34 +1,39 @@
-from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException, UploadFile, File
 import joblib
 import numpy as np
+import librosa
+import os
 
 app = FastAPI()
 
 # Cargar modelos preentrenados utilizando joblib
-try:
-    encoder = joblib.load("encoder.pkl")
-    modelo = joblib.load("modelo_svc.pkl")
-    scaler = joblib.load("scaler.pkl")
-except Exception as e:
-    raise RuntimeError(f"Error al cargar los modelos: {e}")
+encoder = joblib.load("encoder.pkl")
+modelo = joblib.load("modelo_svc.pkl")
+scaler = joblib.load("scaler.pkl")
 
-# Definir el esquema de entrada para la predicción
-class PredictionInput(BaseModel):
-    audio_features: list[float]
+def extraer_caracteristicas(ruta_audio, n_mfcc=13):
+    # Cargar el audio y extraer los MFCCs
+    y, sr = librosa.load(ruta_audio, sr=None)
+    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
+    return np.mean(mfccs, axis=1)
 
 @app.post("/predict")
-def predict(input_data: PredictionInput):
+async def predict(file: UploadFile = File(...)):
     try:
-        # Convertir la lista de características en un array y reformatearlo
-        input_array = np.array(input_data.audio_features).reshape(1, -1)
-        scaled_data = scaler.transform(input_array)
+        # Guardar el archivo temporalmente
+        temp_file = "temp_audio.wav"
+        with open(temp_file, "wb") as f:
+            f.write(await file.read())
 
-        # Realizar la predicción y obtener la probabilidad asociada
+        # Extraer características del audio
+        features = extraer_caracteristicas(temp_file)
+        os.remove(temp_file)  # Limpiar el archivo temporal
+
+        # Preparar los datos para la predicción
+        input_array = np.array(features).reshape(1, -1)
+        scaled_data = scaler.transform(input_array)
         prediction = modelo.predict(scaled_data)[0]
         probability = max(modelo.predict_proba(scaled_data)[0])
-
-        # Convertir la predicción a la etiqueta original
         predicted_label = encoder.inverse_transform([prediction])[0]
 
         return {"prediction": predicted_label, "probability": probability}
