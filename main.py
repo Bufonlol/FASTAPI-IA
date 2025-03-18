@@ -6,6 +6,14 @@ import os
 
 app = FastAPI()
 
+# Configurar CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Permitir todos los orígenes, puedes especificar tu frontend aquí
+    allow_methods=["*"],  # Permitir todos los métodos HTTP
+    allow_headers=["*"],  # Permitir todos los encabezados
+)
+
 # Cargar modelos preentrenados utilizando joblib
 encoder = joblib.load("encoder.pkl")
 modelo = joblib.load("modelo_svc.pkl")
