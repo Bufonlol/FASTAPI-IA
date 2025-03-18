@@ -2,3 +2,4 @@ fastapi
 uvicorn
 numpy
 scikit-learn
+joblib
