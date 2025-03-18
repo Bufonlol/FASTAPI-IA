@@ -3,6 +3,8 @@ import joblib
 import numpy as np
 import librosa
 import os
+from fastapi.middleware.cors import CORSMiddleware
+
 
 app = FastAPI()
 
