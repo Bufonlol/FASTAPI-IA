@@ -14,6 +14,7 @@ app.add_middleware(
     allow_origins=["*"],  # Permitir todos los orígenes, puedes especificar tu frontend aquí
     allow_methods=["*"],  # Permitir todos los métodos HTTP
     allow_headers=["*"],  # Permitir todos los encabezados
+    allow_credentials=True,  # Permitir el uso de cookies y autenticación
 )
 
 # Cargar modelos preentrenados utilizando joblib
