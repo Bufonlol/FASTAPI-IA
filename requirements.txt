@@ -1,7 +1,9 @@
 fastapi
 uvicorn
+sqlalchemy
+psycopg2-binary
+python-multipart
+python-jose[cryptography]
+librosa
 numpy
 scikit-learn
-joblib
-librosa
-python-multipart

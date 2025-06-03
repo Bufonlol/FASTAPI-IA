@@ -1,88 +1,64 @@
-from fastapi import FastAPI, HTTPException, UploadFile, File
-import joblib
-import numpy as np
-import librosa
-import os
+from fastapi import FastAPI, UploadFile, File, Depends
 from fastapi.middleware.cors import CORSMiddleware
-
+from database import Base, engine, SessionLocal
+from models import Prediccion
+from auth import get_current_user_id
+from modelo_svc import modelo_svc
+import librosa
+import numpy as np
+import time
 
 app = FastAPI()
 
-# Configurar CORS
+# CORS (ajusta según origen de tu frontend)
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Permitir todos los orígenes, puedes especificar tu frontend aquí
-    allow_methods=["*"],  # Permitir todos los métodos HTTP
-    allow_headers=["*"],  # Permitir todos los encabezados
-    allow_credentials=True,  # Permitir el uso de cookies y autenticación
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# Cargar modelos preentrenados utilizando joblib
-progress = ["Cargando modelos preentrenados..."]
-encoder = joblib.load("encoder.pkl")
-modelo = joblib.load("modelo_svc.pkl")
-scaler = joblib.load("scaler.pkl")
-progress.append("Modelos cargados exitosamente.")
+# Crear tablas
+Base.metadata.create_all(bind=engine)
 
-def extraer_caracteristicas(ruta_audio, n_mfcc=13):
-    progress.append("Cargando audio y extrayendo MFCCs...")
-    y, sr = librosa.load(ruta_audio, sr=None)
-    progress.append(f"Audio cargado con tasa de muestreo: {sr}")
-    mfccs = librosa.feature.mfcc(y=y, sr=sr, n_mfcc=n_mfcc)
-    progress.append(f"MFCCs extraídos: {mfccs.shape}")
-    return np.mean(mfccs, axis=1)
+# Guardar predicción
+def guardar_en_db(nombre_archivo, resultado, user_id, tiempo_ejecucion):
+    db = SessionLocal()
+    pred = Prediccion(
+        nombre_archivo=nombre_archivo,
+        resultado=resultado,
+        user_id=user_id,
+        tiempo_ejecucion=tiempo_ejecucion
+    )
+    db.add(pred)
+    db.commit()
+    db.close()
 
 @app.post("/predict")
-async def predict(file: UploadFile = File(...)):
-    global progress  # Permitir acceso a la lista de progreso
-    progress = ["Iniciando predicción..."]
+async def predict(file: UploadFile = File(...), user_id: int = Depends(get_current_user_id)):
+    contenido = await file.read()
+    with open(file.filename, "wb") as f:
+        f.write(contenido)
 
-    try:
-        progress.append(f"Nombre del archivo recibido: {file.filename}")
+    audio, sr = librosa.load(file.filename, sr=None)
+    mfccs = librosa.feature.mfcc(y=audio, sr=sr)
+    features = np.mean(mfccs.T, axis=0)
 
-        # Guardar el archivo temporalmente
-        temp_file = "temp_audio.wav"
-        progress.append("Guardando archivo de audio...")
-        with open(temp_file, "wb") as f:
-            f.write(await file.read())
+    start = time.time()
+    resultado = modelo_svc.predict([features])[0]
+    end = time.time()
 
-        # Extraer características del audio
-        progress.append("Extrayendo características del audio...")
-        features = extraer_caracteristicas(temp_file)
+    guardar_en_db(file.filename, resultado, user_id, end - start)
 
-        # Eliminar el archivo temporal
-        progress.append("Eliminando archivo temporal...")
-        os.remove(temp_file)
+    return {
+        "archivo": file.filename,
+        "resultado": resultado,
+        "tiempo_ejecucion_segundos": round(end - start, 3)
+    }
 
-        # Preparar los datos para la predicción
-        progress.append("Escalando características...")
-        input_array = np.array(features).reshape(1, -1)
-        scaled_data = scaler.transform(input_array)
-        progress.append(f"Datos escalados: {scaled_data}")
-
-        # Realizar predicción
-        progress.append("Realizando predicción...")
-        prediction = modelo.predict(scaled_data)[0]
-        progress.append(f"Etiqueta predicha: {prediction}")
-
-        # Calcular la probabilidad de la predicción
-        progress.append("Calculando probabilidad...")
-        probability = max(modelo.predict_proba(scaled_data)[0])
-        progress.append(f"Probabilidad calculada: {probability}")
-
-        # Decodificar la etiqueta predicha
-        progress.append("Decodificando la etiqueta predicha...")
-        predicted_label = encoder.inverse_transform([prediction])[0]
-        progress.append(f"Etiqueta predicha decodificada: {predicted_label}")
-
-        progress.append("Predicción completada con éxito.")
-
-        return {
-            "progress": progress,
-            "prediction": predicted_label,
-            "probability": probability
-        }
-
-    except Exception as e:
-        progress.append(f"Error: {str(e)}")
-        raise HTTPException(status_code=500, detail={"progress": progress, "error": str(e)})
+@app.get("/mis-predicciones")
+def listar_predicciones(user_id: int = Depends(get_current_user_id)):
+    db = SessionLocal()
+    resultados = db.query(Prediccion).filter(Prediccion.user_id == user_id).all()
+    db.close()
+    return resultados
