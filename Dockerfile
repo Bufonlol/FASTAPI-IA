@@ -5,11 +5,7 @@ FROM python:3.10
 WORKDIR /app
 
 # Copiar los archivos necesarios al contenedor
-COPY main.py /app/
-COPY encoder.pkl /app/
-COPY modelo_svc.pkl /app/
-COPY scaler.pkl /app/
-COPY requirements.txt /app/
+COPY . /app/
 
 # Instalar las dependencias
 RUN pip install --no-cache-dir -r requirements.txt
