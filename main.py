@@ -7,6 +7,8 @@ from modelo_svc import modelo_svc
 import librosa
 import numpy as np
 import time
+from auth import get_current_user_id, oauth2_scheme
+
 
 app = FastAPI()
 
