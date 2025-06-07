@@ -166,8 +166,8 @@ def save_prediction_to_db(db: Session, filename: str, result: str, user_id: int,
 # Endpoints
 @app.post("/predict", response_model=PredictionResult)
 async def predict_audio(
-    file: UploadFile = File(...),
     background_tasks: BackgroundTasks,
+    file: UploadFile = File(...),
     user_id: int = Depends(get_current_user_id),
     db: Session = Depends(get_db)
 ):
@@ -177,14 +177,12 @@ async def predict_audio(
     file_path = await save_uploaded_file(file)
     background_tasks.add_task(cleanup_file, file_path)
 
-    # Feature extraction in thread pool
     loop = asyncio.get_event_loop()
     try:
         features = await loop.run_in_executor(executor, extract_audio_features, file_path)
     except ValueError as e:
         raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(e))
 
-    # Prediction with probability
     start = time.perf_counter()
     try:
         probs = modelo_svc.predict_proba([features])[0]
@@ -217,7 +215,7 @@ async def get_all_predictions_by_user(
     limit: int = 100,
     offset: int = 0
 ):
-    if current_user_id != user_id or current_user_id is None:
+    if current_user_id is None or current_user_id != user_id:
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Access denied")
 
     limit = max(1, min(limit, 1000))
