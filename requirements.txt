@@ -1,9 +1,10 @@
-fastapi
-uvicorn
-sqlalchemy
-psycopg2-binary
+fastapi>=0.100
+uvicorn[standard]>=0.22
+sqlalchemy>=2.0
+psycopg2-binary>=2.9
 python-multipart
 python-jose[cryptography]
-librosa
-numpy
-scikit-learn
+librosa>=0.10
+numpy>=1.24
+scikit-learn>=1.2
+joblib>=1.2
