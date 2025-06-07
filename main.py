@@ -11,6 +11,7 @@ from starlette.status import HTTP_400_BAD_REQUEST
 import uuid
 import time
 from sqlalchemy.orm import Session
+from datetime import datetime
 
 # Importaciones locales
 from auth import get_current_user_id
@@ -45,16 +46,19 @@ class PredictionResult(BaseModel):
     filename: str
     execution_time: float
 
+from datetime import datetime
+
 class PrediccionResponse(BaseModel):
     id: int
     nombre_archivo: str
     resultado: str
     user_id: int
     tiempo_ejecucion: float = Field(..., description="Execution time in seconds")
-    fecha: str = Field(..., description="Prediction date in ISO format")
+    fecha: datetime = Field(..., description="Prediction date in ISO format")
 
     class Config:
-        from_attributes = True  # 👈 Esto es lo que necesitas
+        from_attributes = True
+ # 👈 Esto es lo que necesitas
 
 
 class UserPredictionsResponse(BaseModel):
