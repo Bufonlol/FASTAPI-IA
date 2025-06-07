@@ -54,7 +54,8 @@ class PrediccionResponse(BaseModel):
     fecha: str = Field(..., description="Prediction date in ISO format")
 
     class Config:
-        orm_mode = True
+        from_attributes = True  # 👈 Esto es lo que necesitas
+
 
 class UserPredictionsResponse(BaseModel):
     total: int = Field(..., description="Total number of predictions")
