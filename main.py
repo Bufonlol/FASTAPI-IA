@@ -84,11 +84,12 @@ async def predict(
     # Procesar audio y extraer features
     try:
         audio, sr = librosa.load(file_path, sr=None)
-        mfccs = librosa.feature.mfcc(y=audio, sr=sr)
+        mfccs = librosa.feature.mfcc(y=audio, sr=sr, n_mfcc=13)  # <- Forzar 13 MFCCs
         features = np.mean(mfccs.T, axis=0)
     except Exception as e:
         os.remove(file_path)
         raise HTTPException(status_code=400, detail=f"Error procesando audio: {e}")
+
 
     start = time.time()
     try:
