@@ -77,6 +77,18 @@ class PrediccionResponse(BaseModel):
     tiempo_ejecucion: float = Field(..., description="Execution time in seconds")
     fecha: str = Field(..., description="Prediction date")
 
+    @classmethod
+    def from_orm(cls, obj):
+        """Custom method to handle datetime conversion"""
+        return cls(
+            id=obj.id,
+            nombre_archivo=obj.nombre_archivo,
+            resultado=obj.resultado,
+            user_id=obj.user_id,
+            tiempo_ejecucion=obj.tiempo_ejecucion,
+            fecha=obj.fecha.isoformat() if hasattr(obj.fecha, 'isoformat') else str(obj.fecha)
+        )
+
 class PrediccionDetailResponse(BaseModel):
     """Detailed response model for individual prediction"""
     model_config = ConfigDict(from_attributes=True)
@@ -377,7 +389,7 @@ async def get_all_predictions_by_user(
         )
 
         # Get predictions with pagination
-        predictions = (
+        predictions_db = (
             db.query(Prediccion)
             .filter(Prediccion.user_id == user_id)
             .order_by(Prediccion.fecha.desc())
@@ -385,6 +397,11 @@ async def get_all_predictions_by_user(
             .limit(limit)
             .all()
         )
+
+        # Convert to response model manually
+        predictions = [
+            PrediccionResponse.from_orm(pred) for pred in predictions_db
+        ]
 
         # Calculate summary statistics
         epoc_count = (
@@ -498,7 +515,7 @@ async def get_user_predictions(
 ):
     """
     Get user's prediction history with pagination.
-    
+
     - **limit**: Maximum number of results (default: 100, max: 1000)
     - **offset**: Number of results to skip (default: 0)
     """
@@ -507,7 +524,7 @@ async def get_user_predictions(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication required"
         )
-    
+
     # Validate pagination parameters
     if limit > 1000:
         limit = 1000
@@ -515,9 +532,9 @@ async def get_user_predictions(
         limit = 1
     if offset < 0:
         offset = 0
-    
+
     try:
-        predictions = (
+        predictions_db = (
             db.query(Prediccion)
             .filter(Prediccion.user_id == user_id)
             .order_by(Prediccion.fecha.desc())
@@ -525,6 +542,11 @@ async def get_user_predictions(
             .limit(limit)
             .all()
         )
+
+        # Convert to response model manually
+        predictions = [
+            PrediccionResponse.from_orm(pred) for pred in predictions_db
+        ]
         
         return predictions
         
