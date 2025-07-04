@@ -39,6 +39,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+from models import Base
+from database import engine
+
+@app.on_event("startup")
+def startup_event():
+    # Cargar el modelo al iniciar
+    load_model()
+
+    # Crear tabla predicciones si no existe
+    Base.metadata.create_all(bind=engine)
+
+
 # Modelos Pydantic
 class PredictionResult(BaseModel):
     label: Literal["COPD", "Healthy"]
